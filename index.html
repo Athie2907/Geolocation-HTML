@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML GEOLOCATION</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Demo HTML5 GEOLOCATION API</h1>
+    <div class="box">
+        <h2>1. Lấy vị trí hiện tại</h2>
+        <button onclick="getLocation()">Lấy vị trí của tôi</button>
+        <p id="currentPosition"></p>
+        <div id="map"></div>
+    </div>
+    <div class="box">
+        <h2>2. Theo dõi vị trí thời gian thực</h2>
+        <button onclick="watchMyPosition()">Bắt đầu theo dõi vị trí</button>
+        <p id="watchResult"></p>
+    </div>
+    <div class="box" id="distanceBox">
+        <h2>3. Tính khoảng cách đến trường học(Ví dụ)</h2>
+        <p><b>Điểm cố định:</b> Trường ĐH Sài Gòn</p>
+        <button onclick="calculateDistance()">Tính khoảng cách</button>
+        <p id="distanceResult"></p>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
