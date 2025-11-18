@@ -16,18 +16,21 @@
         <div id="map1" class="map-container"></div>
     </div>
     <div class="box">
-        <h2>2. Theo dõi vị trí thời gian thực</h2>
-        <button onclick="watchMyPosition()">Bắt đầu theo dõi vị trí</button>
-        <button onclick="clearWatchPosition()">Ngừng theo dõi</button>
+        <h2>2. Tìm và Hiển thị địa điểm</h2>
+        <p>
+            <label for="searchName">Nhập tên địa điểm</label>
+            <input type="text" id="searchName" placeholder="Ví dụ: Bưu điện Thành phố Hồ Chí Minh">
+            <button onclick="searchAndDisplayMap()">Tìm và Hiển thị</button>
+        </p>
         <p id="watchResult"></p>
         <div id="map2" class="map-container"></div>
     </div>
     <div class="box">
-        <h2>3. Tính khoảng cách đến trường học(Ví dụ)</h2>
+        <h2>3. Tính khoảng cách</h2>
         <p>
             <label for="destinationName">Nhập tên địa điểm:</label>
-            <input type="text" id="destinationName" placeholder="Ví dụ: Trường ĐH Sài Gòn">
-            <button onclick="geocodeAndCalculate()">Tìm và Tính khoảng cách</button>
+            <input type="text" id="destinationName" placeholder="Ví dụ: Bưu điện Thành phố Hồ Chí Minh">
+            <button onclick="geocodeAndCalculateDistance()">Tính khoảng cách</button>
         </p>
         <p id="distanceResult"></p>
         <div id="map3" class="map-container"></div>

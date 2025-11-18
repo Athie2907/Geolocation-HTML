@@ -1,9 +1,15 @@
-let watchId = null; //Biến lưu ID của quá trình theo dõi
-//Khởi tạo bản đồ 1
+let watchId = null; // Biến lưu ID của quá trình theo dõi (không dùng nữa nhưng giữ lại)
 let map1 = null;
-function initMap1(lat, lon){
-    if(map1){ //Xoá bản đồ cũ(nếu có)
-        map1.remove();
+let map2 = null;
+let currentMarker = null;
+let map3 = null;
+
+// ======================= CÁC HÀM KHỞI TẠO MAP ==========================
+
+// Khởi tạo bản đồ 1 (Lấy vị trí hiện tại)
+function initMap1(lat, lon) {
+    if (map1) {
+        map1.remove(); // Xoá bản đồ cũ (nếu có)
     }
     map1 = L.map('map1').setView([lat, lon], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -11,58 +17,43 @@ function initMap1(lat, lon){
     }).addTo(map1);
     L.marker([lat, lon]).addTo(map1).bindPopup("Vị trí hiện tại").openPopup();
 }
-//khởi tạo bản đồ 2
-let map2 = null;
-let currentMarker = null;
-function initMap2(lat, lon) {
+
+// Khởi tạo bản đồ 2 (Tìm và Hiển thị Địa điểm)
+function initMap2(lat, lon, name) {
     if (!map2) {
         map2 = L.map('map2').setView([lat, lon], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map2);
     } else {
-        map2.setView([lat, lon], map2.getZoom());
+        map2.setView([lat, lon], 15); // Đặt view mới
     }
     if(currentMarker){
-        map2.removeLayer(currentMarker);//Xoá marker cũ
+        map2.removeLayer(currentMarker);// Xoá marker cũ
     }
     currentMarker = L.marker([lat, lon]).addTo(map2)
-        .bindPopup("Vị trí đang theo dõi").openPopup();
+        .bindPopup(`Điểm đến: <b>${name}</b>`).openPopup();
 }
-//khởi tạo bản đồ 3
-let map3 = null;
-let routingControl = null;
+
+// Khởi tạo bản đồ 3 (Tính Khoảng cách)
 function initMap3() {
     if (!map3) {
         map3 = L.map('map3').setView([10.762622, 106.682210], 13); // Tọa độ trung tâm mặc định
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map3);
-    } else { //Xoá đường đi cũ(nếu có)
-        if (routingControl) {
-            map3.removeControl(routingControl);
-            routingControl = null;
+    }
+    // Xóa tất cả các lớp marker cũ trên map3
+    map3.eachLayer(function (layer) {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+            map3.removeLayer(layer);
         }
-    }
+    });
 }
 
-//1. Lấy vị trí
-function getLocation(){
-    if(!navigator.geolocation){
-        document.getElementById("currentPosition").innerText = "Trình duyệt không hỗ trợ Geolocation.";
-        return;
-    }
-    navigator.geolocation.getCurrentPosition(showPosition, showError);
-}
+// ======================= HÀM XỬ LÝ LỖI VÀ VỊ TRÍ ==========================
 
-function showPosition(pos){
-    const lat = pos.coords.latitude; //Vĩ độ
-    const lon = pos.coords.longitude; //Kinh độ
-    const accuracy = pos.coords.accuracy; //Độ chính xác
-    document.getElementById("currentPosition").innerHTML = `Vĩ độ: <b>${lat}</b><br>Kinh độ: <b>${lon}</b><br>Độ chính xác: <b>${pos.coords.accuracy}m</b>`;
-    initMap1(lat, lon);
-}
-function showError(err){
+function showError(err) {
     let msg ="Lỗi không xác định.";
     switch(err.code){
         case err.PERMISSION_DENIED:
@@ -75,72 +66,95 @@ function showError(err){
             msg ="Hết thời gian chờ yêu cầu vị trí.";
             break;
     }
+    // Ghi lỗi vào #currentPosition (chỉ dùng cho mục 1)
     document.getElementById("currentPosition").innerText = `Lỗi: ${msg} (${err.message})`;
 }
 
-//2.Theo dõi vị trí
-function watchMyPosition(){
-    if(!navigator.geolocation){
-        document.getElementById("watchResult").innerText ="Trình duyệt không hỗ trợ Geolocation.";
+// Công thức Haversine (tính khoảng cách đường chim bay)
+function distance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // km (Bán kính Trái Đất)
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI/180) *
+        Math.cos(lat2 * Math.PI/180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+
+// ======================= 1. Lấy vị trí hiện tại ==========================
+
+function getLocation() {
+    if (!navigator.geolocation) {
+        document.getElementById("currentPosition").innerText = "Trình duyệt không hỗ trợ Geolocation.";
         return;
     }
-    if(watchId !== null){
-        document.getElementById("watchResult").innerText = "Đã bật chế độ theo dõi vị trí."
-    }
-    //Bắt đầu theo dõi
-    watchId = navigator.geolocation.watchPosition((pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        const speed = pos.coords.speed || "Không xác định";
-
-        document.getElementById("watchResult").innerHTML =
-            `Vĩ độ: <b>${lat}</b><br>
-            Kinh độ: <b>${lon}</b><br>
-            Tốc độ: <b>${speed ? (speed * 3.6).toFixed(2) + " km/h" : "Không xác định"}</b><br>
-            Cập nhật lúc: <b>${new Date(pos.timestamp).toLocaleTimeString()}</b>`;
-
-        // Cập nhật vị trí trên bản đồ 2
-        initMap2(lat, lon);
-    }, showError, {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
+    navigator.geolocation.getCurrentPosition(showPosition, showError, {
+        enableHighAccuracy: false, 
+        timeout: 5000, 
+        maximumAge: 60000 
     });
-
-    document.getElementById("watchResult").innerHTML = "Đang chờ vị trí... (Đang theo dõi)";
 }
-function clearWatchPosition(){
-    if(watchId !== null){
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-        document.getElementById("watchResult").innerHTML = "Đã ngừng theo dõi vị trí.";
 
-        // Xóa marker trên bản đồ 2 nếu có
-        if (map2 && currentMarker) {
-            map2.removeLayer(currentMarker);
-            currentMarker = null;
+function showPosition(pos) {
+    const lat = pos.coords.latitude; // Vĩ độ
+    const lon = pos.coords.longitude; // Kinh độ
+    const accuracy = pos.coords.accuracy; // Độ chính xác
+
+    document.getElementById("currentPosition").innerHTML = 
+        `Vĩ độ: <b>${lat}</b><br>
+        Kinh độ: <b>${lon}</b><br>
+        Độ chính xác: <b>${accuracy}m</b>`;
+
+    // Khởi tạo bản đồ 1
+    initMap1(lat, lon); 
+}
+
+// ======================= 2. Tìm và Hiển thị Địa điểm ==========================
+
+async function searchAndDisplayMap() {
+    const searchName = document.getElementById("searchName").value.trim();
+    if (searchName === "") {
+        document.getElementById("watchResult").innerHTML = "Vui lòng nhập tên địa điểm muốn tìm.";
+        return;
+    }
+    document.getElementById("watchResult").innerHTML = "Đang tìm tọa độ...";
+
+    try {
+        // Geocoding (chuyển tên thành tọa độ)
+        const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchName)}&format=json&limit=1`;
+        
+        const response = await fetch(geocodeUrl);
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            const fixedName = data[0].display_name;
+            
+            document.getElementById("watchResult").innerHTML = 
+                `Đã tìm thấy: <b>${fixedName}</b><br>
+                Vĩ độ: <b>${lat}</b> - Kinh độ: <b>${lon}</b>`;
+                
+            initMap2(lat, lon, fixedName);
+
+        } else {
+            document.getElementById("watchResult").innerHTML = `Không tìm thấy tọa độ cho địa điểm: <b>${searchName}</b>.`;
         }
-    } else{
-        document.getElementById("watchResult").innerHTML = "Chưa có quá trình theo dõi nào được bật.";
+    } catch (error) {
+        document.getElementById("watchResult").innerHTML = `Lỗi tìm kiếm tọa độ: ${error.message}`;
+        console.error("Geocoding Error:", error);
     }
 }
-//Công thức Haversine
-function distance(lat1, lon1, lat2, lon2){
-    const R = 6371; // bán kính Trái Đất
-    const dLat = (lat2 - lat1) * Math.PI/180;
-    const dLon = (lon2 - lon1) * Math.PI/180;
-    const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) *
-        Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
 
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
-// Bước 1: Geocoding (chuyển tên địa điểm thành tọa độ)
-async function geocodeAndCalculate() {
-    initMap3(); // Khởi tạo bản đồ 3
+// ======================= 3. Tính Khoảng cách Đường chim bay ==========================
 
+async function geocodeAndCalculateDistance() {
+    initMap3(); // Khởi tạo 3
     const destinationName = document.getElementById("destinationName").value.trim();
     if (destinationName === "") {
         document.getElementById("distanceResult").innerHTML = "Vui lòng nhập tên địa điểm muốn đến.";
@@ -149,9 +163,8 @@ async function geocodeAndCalculate() {
     document.getElementById("distanceResult").innerHTML = "Đang tìm tọa độ...";
 
     try {
-        // Sử dụng dịch vụ Nominatim của OSM (API miễn phí)
+        // Geocoding
         const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destinationName)}&format=json&limit=1`;
-        
         const response = await fetch(geocodeUrl);
         const data = await response.json();
 
@@ -160,8 +173,8 @@ async function geocodeAndCalculate() {
             const fixedLon = parseFloat(data[0].lon);
             const fixedName = data[0].display_name;
             
-            // Bước 2: Lấy vị trí hiện tại và tính toán
-            calculateRoute(fixedLat, fixedLon, fixedName);
+            // Bước 2: Lấy vị trí hiện tại và tính toán khoảng cách
+            calculateHaversineDistance(fixedLat, fixedLon, fixedName);
 
         } else {
             document.getElementById("distanceResult").innerHTML = `Không tìm thấy tọa độ cho địa điểm: <b>${destinationName}</b>.`;
@@ -172,78 +185,44 @@ async function geocodeAndCalculate() {
     }
 }
 
-// Bước 2: Tính toán khoảng cách/đường đi
-function calculateRoute(fixedLat, fixedLon, fixedName) {
+function calculateHaversineDistance(fixedLat, fixedLon, fixedName) {
     if (!navigator.geolocation) {
         document.getElementById("distanceResult").innerText = "Trình duyệt không hỗ trợ Geolocation.";
         return;
     }
 
-    document.getElementById("distanceResult").innerHTML = "Đã tìm thấy tọa độ. Đang lấy vị trí hiện tại...";
+    document.getElementById("distanceResult").innerHTML = "Đã tìm thấy tọa độ đích. Đang lấy vị trí hiện tại...";
 
+    // Tối ưu hóa lấy vị trí
     navigator.geolocation.getCurrentPosition((pos) => {
         const currentLat = pos.coords.latitude;
         const currentLon = pos.coords.longitude;
 
         // 1. Tính khoảng cách Haversine (đường chim bay)
         const d = distance(currentLat, currentLon, fixedLat, fixedLon);
-        
-        // 2. Hiển thị đường đi bằng Leaflet Routing Machine (sử dụng OSRM)
-        
-        // Xóa đường đi cũ nếu có
-        if (routingControl) {
-            map3.removeControl(routingControl);
-        }
 
-        const waypoints = [
-            L.latLng(currentLat, currentLon), // Vị trí hiện tại
-            L.latLng(fixedLat, fixedLon)     // Vị trí đích
-        ];
+        // 2. Hiển thị 2 điểm và đường thẳng (chim bay) trên bản đồ 3
+        L.marker([currentLat, currentLon]).addTo(map3).bindPopup("Vị trí của tôi").openPopup();
+        L.marker([fixedLat, fixedLon]).addTo(map3).bindPopup(fixedName).openPopup();
+        L.polyline([[currentLat, currentLon], [fixedLat, fixedLon]], {color: 'red', weight: 4}).addTo(map3);
 
-        routingControl = L.Routing.control({
-            waypoints: waypoints,
-            routeWhileDragging: false, // Tắt tính toán lại khi kéo marker
-            lineOptions: {styles: [{color: '#007bff', weight: 6}]},
-            // Sử dụng OSRM
-            router: L.Routing.osrmv1({
-                serviceUrl: 'https://router.project-osrm.org/route/v1'
-            }),
-            geocoder: L.Control.Geocoder.nominatim(),
-            showAlternatives: false,
-            // Đặt tên cho các điểm
-            createMarker: function(i, waypoint, n) {
-                const label = i === 0 ? "Vị trí của tôi" : fixedName;
-                return L.marker(waypoint.latLng).bindPopup(label).openPopup();
-            }
-        }).addTo(map3);
+        // Fit map để hiển thị cả hai điểm
+        const bounds = L.latLngBounds([[currentLat, currentLon], [fixedLat, fixedLon]]);
+        map3.fitBounds(bounds, {padding: [50, 50]});
 
-        // Lắng nghe sự kiện khi tìm được đường đi
-        routingControl.on('routesfound', function(e) {
-            const routes = e.routes;
-            const summary = routes[0].summary;
-            const routeDistance = (summary.totalDistance / 1000).toFixed(2); // Tổng khoảng cách đường đi
-            const routeTime = summary.totalTime; // Tổng thời gian đi (giây)
-
-            const minutes = Math.floor(routeTime / 60);
-            const seconds = Math.round(routeTime % 60);
-            
-            document.getElementById("distanceResult").innerHTML = `
-                <b>Điểm đến:</b> ${fixedName} (${fixedLat.toFixed(6)}, ${fixedLon.toFixed(6)})<br>
-                <b>Khoảng cách đường chim bay (Haversine):</b> ${d.toFixed(2)} km<br>
-                <b>Khoảng cách theo đường đi (OSRM):</b> <span style="color: green;">${routeDistance} km</span><br>
-                <b>Thời gian ước tính:</b> <span style="color: green;">${minutes} phút ${seconds} giây</span>
-            `;
-
-             // Fit map to show the whole route
-            map3.fitBounds(routingControl.getPlan().getBounds(), {padding: [20, 20]});
-        });
-
-        routingControl.on('routingerror', function(e) {
-            document.getElementById("distanceResult").innerHTML = `Lỗi tìm đường đi (OSRM): ${e.message}. Vẫn hiển thị khoảng cách đường chim bay: <b>${d.toFixed(2)} km</b>`;
-        });
+        // 3. Hiển thị kết quả
+        document.getElementById("distanceResult").innerHTML = `
+            <b>Vị trí hiện tại:</b> (${currentLat.toFixed(6)}, ${currentLon.toFixed(6)})<br>
+            <b>Điểm đến:</b> ${fixedName}<br>
+            <b>Khoảng cách đường chim bay:</b> <span style="color: red;">${d.toFixed(2)} km</span>
+        `;
 
     }, (err) => {
-        showError(err);
-        document.getElementById("distanceResult").innerHTML = `Lỗi lấy vị trí hiện tại: ${document.getElementById("distanceResult").innerText}.`;
+        // Ghi lỗi Geolocation vào kết quả
+        document.getElementById("distanceResult").innerHTML = `Lỗi lấy vị trí hiện tại: ${err.message}.`;
+    }, {
+        enableHighAccuracy: false,
+        timeout: 3000,
+        maximumAge: 60000
     });
 }
